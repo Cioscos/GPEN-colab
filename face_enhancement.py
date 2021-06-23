@@ -7,12 +7,14 @@ import cv2
 import glob
 import time
 import numpy as np
+from pathlib import Path
 from PIL import Image
 import __init_paths
 from retinaface.retinaface_detection import RetinaFaceDetection
 from face_model.face_gan import FaceGAN
 from align_faces import warp_and_crop_face, get_reference_facial_points
 from skimage import transform as tf
+from DFLIMG.DFLJPG import DFLJPG
 
 class FaceEnhancement(object):
     def __init__(self, base_dir='./', size=512, model=None, channel_multiplier=2):
@@ -78,33 +80,74 @@ class FaceEnhancement(object):
         img = cv2.convertScaleAbs(img*(1-full_mask) + full_img*full_mask)
 
         return img, orig_faces, enhanced_faces
-        
+
+IMG_EXTENSIONS = [
+    '.jpg', '.JPG', '.jpeg', '.JPEG',
+    '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
+]
+
+
+def is_image_file(filename):
+    return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
+
+
+def make_dataset(dirs):
+    images = []
+    assert os.path.isdir(dirs), '%s is not a valid directory' % dirs
+
+    for root, _, fnames in sorted(os.walk(dirs)):
+        for fname in fnames:
+            if is_image_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+
+    return images
+
 
 if __name__=='__main__':
-    model = {'name':'GPEN-512', 'size':512}
-    
-    indir = 'examples/imgs'
+    model = {'name': 'GPEN-512', 'size': 512}
+    file_path = os.getcwd()
+    file_path.replace('/face_enhancement2.py', '')
+    indir = os.path.join(file_path, 'examples/imgs')
     outdir = 'examples/outs'
     os.makedirs(outdir, exist_ok=True)
 
     faceenhancer = FaceEnhancement(size=model['size'], model=model['name'], channel_multiplier=2)
 
-    files = sorted(glob.glob(os.path.join(indir, '*.*g')))
-    for n, file in enumerate(files[:]):
+    # files = sorted(glob.glob(os.path.join(indir, '*.*g')))
+    imgPaths = make_dataset(indir)
+    is_dfl_image = False
+
+    for n, file in enumerate(imgPaths):
+        InputDflImg = DFLJPG.load(file)
+        if not InputDflImg or not InputDflImg.has_data():
+            print('\t################ No landmarks in file {}'.format(file))
+            is_dfl_image = False
+        else:
+            is_dfl_image = True
+            Landmarks = InputDflImg.get_landmarks()
+            InputData = InputDflImg.get_dict()
+            if InputDflImg.has_seg_ie_polys():
+                xseg_polys = InputDflImg.get_seg_ie_polys()
+                for poly in xseg_polys:
+                    poly.set_points(poly.get_pts())
+
         filename = os.path.basename(file)
         
-        im = cv2.imread(file, cv2.IMREAD_COLOR) # BGR
+        im = cv2.imread(file, cv2.IMREAD_COLOR)  # BGR
         if not isinstance(im, np.ndarray): print(filename, 'error'); continue
-        im = cv2.resize(im, (0,0), fx=2, fy=2)
+        im = cv2.resize(im, (0, 0), fx=1, fy=1)
 
         img, orig_faces, enhanced_faces = faceenhancer.process(im)
-        
-        cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'_COMP.jpg'), np.hstack((im, img)))
-        cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'_GPEN.jpg'), img)
-        
-        for m, (ef, of) in enumerate(zip(enhanced_faces, orig_faces)):
-            of = cv2.resize(of, ef.shape[:2])
-            cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'_face%02d'%m+'.jpg'), np.hstack((of, ef)))
-        
-        if n%10==0: print(n, filename)
-        
+
+        cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'.jpg'), img)
+
+        if is_dfl_image:
+            OutputDflImg = DFLJPG.load(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'.jpg'))
+            OutputDflImg.set_dict(InputData)
+            OutputDflImg.set_landmarks(Landmarks)
+            if InputDflImg.has_seg_ie_polys():
+                OutputDflImg.set_seg_ie_polys(xseg_polys)
+            OutputDflImg.save()
+            
+        if n % 10 == 0: print(n, filename)
