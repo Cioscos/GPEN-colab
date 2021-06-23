@@ -116,7 +116,6 @@ if __name__=='__main__':
 
     # files = sorted(glob.glob(os.path.join(indir, '*.*g')))
     imgPaths = make_dataset(indir)
-    is_dfl_image = False
 
     for n, file in enumerate(imgPaths):
         InputDflImg = DFLJPG.load(file)
