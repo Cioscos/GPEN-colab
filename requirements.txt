@@ -1,4 +1,3 @@
-ninja
 torch
 torchvision
 opencv-python
