@@ -81,6 +81,7 @@ class FaceEnhancement(object):
 
         return img, orig_faces, enhanced_faces
 
+
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
     '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
@@ -91,12 +92,16 @@ def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
 
 
+def alphaNumOrder(string):
+   return ''.join([format(int(x), '05d') if x.isdigit()
+                   else x for x in re.split(r'(\d+)', string)])
+
 def make_dataset(dirs):
     images = []
     assert os.path.isdir(dirs), '%s is not a valid directory' % dirs
 
-    for root, _, fnames in sorted(os.walk(dirs)):
-        for fname in fnames:
+    for root, _, fnames in os.walk(dirs):
+        for fname in sorted(fnames, key=alphaNumOrder):
             if is_image_file(fname):
                 path = os.path.join(root, fname)
                 images.append(path)
@@ -107,14 +112,13 @@ def make_dataset(dirs):
 if __name__=='__main__':
     model = {'name': 'GPEN-512', 'size': 512}
     file_path = os.getcwd()
-    file_path.replace('/face_enhancement2.py', '')
     indir = os.path.join(file_path, 'examples/imgs')
     outdir = 'examples/outs'
     os.makedirs(outdir, exist_ok=True)
 
     faceenhancer = FaceEnhancement(size=model['size'], model=model['name'], channel_multiplier=2)
 
-    # files = sorted(glob.glob(os.path.join(indir, '*.*g')))
+    files = sorted(glob.glob(os.path.join(indir, '*.*g')))
     imgPaths = make_dataset(indir)
 
     for n, file in enumerate(imgPaths):
