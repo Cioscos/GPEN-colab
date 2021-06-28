@@ -143,10 +143,12 @@ if __name__=='__main__':
 
         img, orig_faces, enhanced_faces = faceenhancer.process(im)
 
-        cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'.jpg'), img)
+        # cv2.imwrite(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'.jpg'), img)
+        complete_file_path = os.path.join(outdir, '.'.join('out_' + str(n) + '.jpg'))
+        cv2.imwrite(complete_file_path, img)
 
         if is_dfl_image:
-            OutputDflImg = DFLJPG.load(os.path.join(outdir, '.'.join(filename.split('.')[:-1])+'.jpg'))
+            OutputDflImg = DFLJPG.load(complete_file_path)
             OutputDflImg.set_dict(InputData)
             OutputDflImg.set_landmarks(Landmarks)
             if InputDflImg.has_seg_ie_polys():
